@@ -32,12 +32,7 @@ public class FXClient {
 	javax.jms.Connection connection=null;
 	private static final ApplicationImpl application = new ApplicationImpl();
 
-	/**
-	 * @param args
-	 *
-	 * Command line args : 0. Properties File path
-	 * eg : "..\\Dat\\FX\\Config.properties"
-	 */
+	
 	public static void main(String[] args) {
 		FXClient client = new FXClient();
 		client.initializeParams(args);
