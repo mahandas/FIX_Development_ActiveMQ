@@ -31,13 +31,14 @@ The Webapplication and the FIX application are in a pub-sub architecture with th
 # The Flow of Code 
 
 The code starts with the main method (in FXClient.java). Creates an object of the class it resides in and calls the methods.  
-'''java
+  
+```java
 public static void main(String[] args) {
 		FXClient client = new FXClient();
 		client.initializeParams(args);
 		client.startClient();
 	}
-'''
+``` 
 
 # references
 1. https://medium.com/xtrd/a-look-into-fix-protocols-72ec15868e65
