@@ -40,6 +40,92 @@ public static void main(String[] args) {
 	}
 ``` 
 
+The initializeParams reads values from the properties file using ConfigReader. An error in reading the file will be logged in the application logs. And the appliction shuts down. On successful reading of the properties, the appication tries to login with the details of the Liquidity provider using Session details. It consists of the connection string, senderCompID and targetCompID. Once the session is created, it is loaded into the SocketInitiator class along with the application, and MessageFactory class used for logging the messages.
+The initiator is then started and only on successful login the application starts processing the messages.
+  
+```java
+public static boolean login() {
+		try {
+			LOG.info("Attempting login ...");
+			final SessionSettings settings = new SessionSettings(ConfigReader.getConfigFile().getProperty("Initiator"));
+			final String beginString = settings.get().getString("BeginString");
+			final String senderCompID = settings.get().getString("SenderCompID");
+			final String targetCompID = settings.get().getString("TargetCompID");
+			sessionID = new SessionID(beginString, senderCompID, targetCompID);
+
+			
+			MessageStoreFactory storeFactory;
+			LogFactory logFactory;
+
+				storeFactory = new FileStoreFactory(settings);
+				logFactory = new FileLogFactory(settings);
+
+			MessageFactory messageFactory = new MessageFactory();
+			initiator = new SocketInitiator(application, storeFactory, settings, logFactory, messageFactory);
+
+			LOG.info("Initiate login request ...");
+			int waitForLogon = 1000;
+			try {
+				waitForLogon = Integer.parseInt(ConfigReader.getConfigFile().getProperty("Wait_For_Logon"));
+			} catch (Exception e) {
+				LOG.info("Loaded default wait for logon :" + waitForLogon + "ms");
+			}
+			int loginAttempts;
+			try {
+				loginAttempts = Integer.parseInt(ConfigReader.getConfigFile().getProperty("Login_Attempts"));
+			} catch (NumberFormatException nfe) {
+				loginAttempts = -1;
+			}
+			initiator.start();
+			Thread.sleep(waitForLogon);
+			int attemptCount = 1;
+			do {
+				Thread.sleep(waitForLogon);
+				if (ApplicationImpl.isLoggedOn()) {
+					LOG.info("Logged in to FX FIX Server");
+					return true;
+				}
+				LOG.info("Login attempt " + attemptCount++ + " failed. Retrying...");
+			} while (loginAttempts == -1 || loginAttempts >= attemptCount);
+		} catch (Exception e) {
+			LOG.error("Error in loginQuote : " + e.getMessage());
+		}
+		return false;
+	}
+```
+
+Once the Application starts, the pub-sub connection with the ActiveMQ is created to transfer data between webapplication and FIX Application. The process is similar to the initiator implementation and is self explainatory from the code below.
+
+```java
+// Producer
+          			ConnectionFactory connectionFactory = new 	ActiveMQConnectionFactory(ConfigReader.getConfigFile().getProperty("ActiveMQ_URL",ActiveMQConnection.DEFAULT_BROKER_URL));
+          			connection = connectionFactory.createConnection();
+          			Session session = connection.createSession(false,
+          					Session.AUTO_ACKNOWLEDGE);
+          			Queue queue = session.createQueue("REQUEST_MQ");
+// Consumer
+          			MessageConsumer consumer = session.createConsumer(queue);
+          			consumer.setMessageListener(new RequestQuote());
+          			connection.start();
+```
+
+The ApplicationImpl.java is the implementation of the Application. It has overriden methods of the quickfix class. These methods are used to change sessions, parse messages and transfer-recieve data to-from ActiveMQ.
+
+```java
+public void fromAdmin(quickfix.Message message, SessionID sessionID);
+public void onLogon(SessionID arg0);
+public void onLogout(SessionID arg0);
+public void toAdmin(Message message, SessionID arg1);
+public void fromApp(quickfix.Message message, SessionID sessionID);
+
+```
+Note:
+fromApp : the point of entry of data from liquidity provider. This is where prices arrive, parsed and sent to ActiveMQ.
+
+
+# Learnings
+
+Great experience playing around with socket programming, stearming data and a multi tier architecture. This project gave a lot of exposure in terms of using different classes, Object oriented programming, Edge cases handling, Pub-sub architecture and on-boarding clients.
+
 # references
 1. https://medium.com/xtrd/a-look-into-fix-protocols-72ec15868e65
-2. 
